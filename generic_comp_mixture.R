@@ -68,10 +68,18 @@ handmade.em <- function(y, p, mu, sigma, n_iter, plot_flag = T)
   return(out)
 }
 
-data("faithful")
-?faithful
-hem_fit <- handmade.em(faithful$waiting, 
-                       p      = c(.5,.2,.3), 
-                       mu     = c(45,55,65), 
-                       sigma  = c(8,8,8), 
-                       n_iter = 5)
+# Bart Simpson density
+bart_simpson <- function(x) 0.5*dnorm(x, 0, 1) +
+                            0.1*dnorm(x, -1.0, 0.1) + 0.1*dnorm(x, -0.5, 0.1) +
+                            0.1*dnorm(x, 0.0, 0.1) + 0.1*dnorm(x, 0.5, 0.1) +
+                            0.1*dnorm(x, 1.0, .1)
+
+sample_sim <- function(n) rnormmix(n,
+                                   lambda = c(0.5, rep(0.1,5)),
+                                   mu     = c(0, ((0:4)/2)-1),
+                                   sigma  = c(1, rep(0.1,5)))
+
+#curve(bart_simpson, col=rgb(1,0,0,0,4), lwd=3, n=500)
+
+# n_1: hist(sample_sim(500), prob=T, breaks=100)
+# n_2: hist(sample_sim(100000), prob=T, breaks=100)
