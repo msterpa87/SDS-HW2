@@ -87,7 +87,7 @@ n_breaks = 100
 # hist(sample_sim(n_1), prob=T, breaks=n_breaks) # uncomment to plot
 hist(sample_sim(n_2), prob=T, breaks=n_breaks)
 
-XX <- smaple_sim(n_2)
+XX <- sample_sim(n_2)
 hm.fit <- handmade.em(XX, p=rep(1, 5)/5,
                       mu=runif(5, 1, 4),
                       sigma=runif(5, 0, 2),
@@ -122,11 +122,32 @@ sample_split <- function(x, ratio) {
   return(list(train = x[train_idx], test = x[test_idx]))
 }
 
-kfold_split <- function(x, k) {
+kfold_to_split <- function(kfold, k) {
+  # kfold : is the result of createFolds() with names Fold1, Fold2, ...
+  # returns a list with names train and test, setting Fold_k as test set
+  # and the rest as training set
+  idxs <- setdiff(1:length(kfold), k)
+  train_set <- unlist(kfold[idxs], use.names = F)
+  return(list(train = train_set, test = kfold[[k]]))
+}
+
+kfold_cv <- function(x, k, em_run) {
   # x : data
   # k : number of folds
-  # return a list 
+  # returns the average risk running a kfold cross validation on x
+  kfold <- createFolds(x, k) # named list of Fold1, Fold2, ...
+  outs <- rep(NA, k)
+  
+  for (i in 1:k) {
+    x_split <- kfold_to_split(kfold, i) # named list of train/test
+    hm.fit <- em_run(x_split$train)
+    log_like <- 1/n * log_likelihood(x_split$test, hm.fit)
+    outs[i] <- log_like
+  }
+  
+  return(mean(outs))
 }
+
 
 EM_simulation <- function(n, M, k_max, n_iter = 20) {
   # n : sample size
@@ -140,11 +161,7 @@ EM_simulation <- function(n, M, k_max, n_iter = 20) {
     X <- sample_sim(n) # simulating the Bart
 
     # model selection evaluations
-    aic <- rep(NA, k_max)
-    bic <- rep(NA, k_max)
-    cv <- matrix(nrow = 3, ncol = k_max)
-    fold5 <- rep(NA, k_max)
-    fold10 <- rep(NA, k_max)
+    model_eval <- matrix(nrow = 8, ncol = k_max)
     
     for (k in 1:k_max) {
       params <- init_params(k) # initial random parameters
@@ -157,23 +174,27 @@ EM_simulation <- function(n, M, k_max, n_iter = 20) {
       
       # AIC and BIC evaluation
       log_like <- log_likelihood(X, hm.fit)
-      aic[k] <- 2 * (k - log_like)
-      bic[k] <- log(n) * k - 2 * log_like
+      model_eval[1,k] <- 2 * (k - log_like)
+      model_eval[2,k] <- log(n) * k - 2 * log_like
       
       # cross validation on different split ratios
       ratios = c(.5, .7, .3)
       
-      for (i in 1:length(splits)) {
+      for (i in 1:length(ratios)) {
         x_split <- sample_split(x, ratios[i])
         hm.fit <- em_run(x_split$train)
         log_like <- 1/n * log_likelihood(x_split$test, hm.fit)
-        cv[i,k] <- log_like
+        model_eval[i+2,k] <- log_like
       }
       
-      # k-fold cross validation
+      # 5-fold cross validation
+      model_eval[6,k] <- kfold_cv(x, 5, em_run)
+      
+      # 10-fold cross validation
+      model_eval[7,k] <- kfold_cv(x, 5, em_run)
     }
-
-    best_aic <- which.max(aic)
-    cat("sim =", n_sim, "k =", best_aic, "\n")
+  
+    cat("sim =", n_sim, "\n")
+    print(model_eval)
   }
 }
