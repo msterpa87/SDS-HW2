@@ -194,7 +194,8 @@ EM_simulation <- function(n, M, k_max, n_iter = 20) {
       model_eval[7,k] <- kfold_cv(x, 5, em_run)
     }
   
-    cat("sim =", n_sim, "\n")
-    print(model_eval)
+    # take best k for each mode evaluation
+    best_k <- unlist(apply(model_eval, 1, which.max))
+    cat("n_sim =", n_sim, "\n", "results =", best_k, "\n")
   }
 }
