@@ -207,7 +207,7 @@ EM_simulation <- function(n, M, k_max, n_iter = 20, verbose = T) {
       test_ecdf <- ecdf(x_split$test) # ecdf of the test set
       f_test <- function(p) as.numeric(quantile(test_ecdf, probs = p)) # quantile function of testset ecdf
       f_abs <- function(p) abs(f_k(p) - f_test(p)) # integrand
-      model_eval[8,k] <- integrate(f_abs, lower = 0, upper = 1, subdivisions = 1000)$value
+      model_eval[8,k] <- integrate(f_abs, lower = 0, upper = 1, subdivisions = 500)$value
     }
 
     # take best k for each mode evaluation and save it in the result matrix
