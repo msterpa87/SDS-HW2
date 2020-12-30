@@ -1,10 +1,14 @@
 # Handmade EM4MoG ---------------------------------------------------------
 
+library(mixtools)
+library(caret)
+library(KScorrect)
+
 vnorm <- function(y, p, mu, sigma) p * dnorm(y, mu, sigma)
 vect_wnorm <- Vectorize(vnorm, c("p", "mu", "sigma"))
 vect_norm = Vectorize(dnorm, c("mu", "sigma"))
 
-handmade.em <- function(y, p, mu, sigma, n_iter, plot_flag = T)
+handmade.em <- function(y, p, mu, sigma, n_iter = 20, plot_flag = F)
 {
   # vectorized likelihood
   like     <- apply(vect_wnorm(y, p, mu, sigma), 1, sum)
@@ -12,11 +16,11 @@ handmade.em <- function(y, p, mu, sigma, n_iter, plot_flag = T)
   
   # sampling plot colors
   color_list <- grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
-  n    <- length(p)
-  cols <- sample(color_list, n)
+  k    <- length(p)
+  cols <- sample(color_list, k)
 
   # creating matrix of iteration values
-  n_col    <- 2 + 3 * n
+  n_col    <- 2 + 3 * k
   res      <- matrix(NA, n_iter + 1, n_col)
   res[1,]  <- c(0, p, mu, sigma, deviance)
   
@@ -59,7 +63,7 @@ handmade.em <- function(y, p, mu, sigma, n_iter, plot_flag = T)
   }
   res <- data.frame(res)
   # function to generate strings
-  append_str <- function(str) sapply(1:n, function(x) paste(str, x, sep=''))
+  append_str <- function(str) sapply(1:k, function(x) paste(str, x, sep=''))
   p_names <- append_str("p")
   mu_names <- append_str("mu")
   sigma_names <- append_str("sigma")
@@ -80,18 +84,12 @@ sample_sim <- function(n) rnormmix(n,
                                    mu     = c(0, ((0:4)/2)-1),
                                    sigma  = c(1, rep(0.1,5)))
 
-n_1 = 500 # non-asymptotic
-n_2 = 100000 # asymptotic
+n_1 = 10 # non-asymptotic
+n_2 = 1000 # asymptotic
 n_breaks = 100
 
 # hist(sample_sim(n_1), prob=T, breaks=n_breaks) # uncomment to plot
-hist(sample_sim(n_2), prob=T, breaks=n_breaks)
-
-XX <- sample_sim(n_2)
-hm.fit <- handmade.em(XX, p=rep(1, 5)/5,
-                      mu=runif(5, 1, 4),
-                      sigma=runif(5, 0, 2),
-                      n_iter=10)
+#hist(sample_sim(n_2), prob=T, breaks=n_breaks)
 
 log_likelihood <- function(x, hm.fit) {
   like <- apply(vect_wnorm(x, hm.fit$p, hm.fit$mu, hm.fit$sigma), 1, sum)
@@ -122,25 +120,27 @@ sample_split <- function(x, ratio) {
   return(list(train = x[train_idx], test = x[test_idx]))
 }
 
-kfold_to_split <- function(kfold, k) {
+kfold_to_split <- function(XX, kfold, k) {
   # kfold : is the result of createFolds() with names Fold1, Fold2, ...
   # returns a list with names train and test, setting Fold_k as test set
   # and the rest as training set
-  idxs <- setdiff(1:length(kfold), k)
-  train_set <- unlist(kfold[idxs], use.names = F)
-  return(list(train = train_set, test = kfold[[k]]))
+  train_fold_idxs <- setdiff(1:length(kfold), k)
+  train_idxs <- unlist(kfold[train_fold_idxs], use.names = F)
+  test_idxs <- kfold[[k]]
+  return(list(train = XX[train_idxs], test = XX[test_idxs]))
 }
 
-kfold_cv <- function(x, k, em_run) {
+kfold_cv <- function(XX, k, em_run) {
   # x : data
   # k : number of folds
   # returns the average risk running a kfold cross validation on x
-  kfold <- createFolds(x, k) # named list of Fold1, Fold2, ...
+  kfold <- createFolds(XX, k) # named list of Fold1, Fold2, ...
   outs <- rep(NA, k)
   
   for (i in 1:k) {
-    x_split <- kfold_to_split(kfold, i) # named list of train/test
+    x_split <- kfold_to_split(XX, kfold, i) # named list of train/test
     hm.fit <- em_run(x_split$train)
+    n <- length(x_split$test)
     log_like <- 1/n * log_likelihood(x_split$test, hm.fit)
     outs[i] <- log_like
   }
@@ -148,54 +148,83 @@ kfold_cv <- function(x, k, em_run) {
   return(mean(outs))
 }
 
-
-EM_simulation <- function(n, M, k_max, n_iter = 20) {
+EM_simulation <- function(n, M, k_max, n_iter = 20, verbose = T) {
   # n : sample size
   # M : number of simulations
   # k_max : maximum number of components
   # n_iter : number of iterations of EM
-  
-  results <- c()
-  
-  for (n_sim in 1:M) {
-    X <- sample_sim(n) # simulating the Bart
+  start_time = Sys.time()
 
-    # model selection evaluations
+  result <- matrix(nrow = 8, ncol = M)
+
+  for (n_sim in 1:M) {
+    cat("[", n_sim, "/", M, "] ", sep="")
+    
+    # sample from Bart
+    XX <- sample_sim(n)
+    
+    # model evaluation matrix
     model_eval <- matrix(nrow = 8, ncol = k_max)
     
     for (k in 1:k_max) {
       params <- init_params(k) # initial random parameters
       
       # hem.fit instantiated with fixed parameters to make multiple calls within the loop
-      em_run <- function(x) handmade.em(X, params$p, params$mu, params$sigma, n_iter, plot = F)
+      em_run <- function(x) handmade.em(x, params$p, params$mu, params$sigma, n_iter)
       
       # first run EM algorithm on the whole dataset to compute AIC and BIC
-      hm.fit <- em_run(X)
+      hm.fit <- em_run(XX)
       
       # AIC and BIC evaluation
-      log_like <- log_likelihood(X, hm.fit)
-      model_eval[1,k] <- 2 * (k - log_like)
-      model_eval[2,k] <- log(n) * k - 2 * log_like
+      log_like <- log_likelihood(XX, hm.fit)
+      model_eval[1,k] <- 2 * (log_like - k)
+      model_eval[2,k] <- 2 * log_like - log(n) * k
       
       # cross validation on different split ratios
       ratios = c(.5, .7, .3)
       
       for (i in 1:length(ratios)) {
-        x_split <- sample_split(x, ratios[i])
+        x_split <- sample_split(XX, ratios[i])
         hm.fit <- em_run(x_split$train)
-        log_like <- 1/n * log_likelihood(x_split$test, hm.fit)
+        n_test <- length(x_split$test)
+        log_like <- 1/n_test * log_likelihood(x_split$test, hm.fit)
         model_eval[i+2,k] <- log_like
       }
       
       # 5-fold cross validation
-      model_eval[6,k] <- kfold_cv(x, 5, em_run)
+      model_eval[6,k] <- kfold_cv(XX, 5, em_run)
       
       # 10-fold cross validation
-      model_eval[7,k] <- kfold_cv(x, 5, em_run)
+      model_eval[7,k] <- kfold_cv(XX, 10, em_run)
+      
+      # Wasserstein score
+      x_split <- sample_split(XX, .5) # split data in half
+      hm.fit <- em_run(x_split$train) # get MLE from trainset
+      f_k <- function(p) qmixnorm(p, mean = params$mu,
+                                  sd = params$sigma,
+                                  pro = params$p,
+                                  expand = .2) # quantile function on the MLE
+      test_ecdf <- ecdf(x_split$test) # ecdf of the test set
+      f_test <- function(p) as.numeric(quantile(test_ecdf, probs = p)) # quantile function of testset ecdf
+      f_abs <- function(p) abs(f_k(p) - f_test(p)) # integrand
+      model_eval[8,k] <- integrate(f_abs, lower = 0, upper = 1, subdivisions = 1000)$value
     }
-  
-    # take best k for each mode evaluation
-    best_k <- unlist(apply(model_eval, 1, which.max))
-    cat("n_sim =", n_sim, "\n", "results =", best_k, "\n")
+
+    # take best k for each mode evaluation and save it in the result matrix
+    print(model_eval)
+    result[,n_sim] <- unlist(apply(model_eval, 1, which.max))
   }
+  end_time <- Sys.time()
+  total_time <- end_time - start_time
+  avg_time <- total_time / M
+  
+  if(verbose) cat("Total time =", total_time, "\nAverage time =", avg_time, "\n")
+  
+  return(result)
+}
+
+accuracy <- function(k_matrix) {
+  result <- unlist(apply(k_matrix, 1, function(x) sum(x == 6) / length(x)))
+  names(result) <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
+  return(result)
 }
