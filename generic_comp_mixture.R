@@ -113,6 +113,13 @@ log_likelihood <- function(x, hm.fit) {
   return(log_like)
 }
 
+init_kmeans <- function(y, k) {
+  labels <- kmeans(y, k)$cluster
+  mu <- unlist(lapply(1:k, function(i) mean(y[labels == i])))
+  sigma <- unlist(lapply(1:k, function(i) sd(y[labels == i])))
+  p <- unlist(lapply(1:5, function(i) sum(labels == i) / length(labels)))
+  return(list(p = p, mu = mu, sigma = sigma))
+}
 
 init_params <- function(k) {
   # takes the data and the number of components and returns random
