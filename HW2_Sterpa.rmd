@@ -1,9 +1,40 @@
 ---
 title: "HW2_Sterpa"
-author: "Marco Aurelio Sterpa - Edoardo Ulrich Proverbio"
+author: "Marco Aurelio Sterpa"
 date: "26/12/2020"
 output: html_document
 ---
+
+In order to study the performance of different model selection methods on the EM-fit of the Bart Simpson distribution we will first need a procedure to create a sample from this density.
+
+```{r}
+# create a random sample
+sample_sim <- function(n) rnormmix(n,
+                                   lambda = c(0.5, rep(0.1,5)),
+                                   mu     = c(0, ((0:4)/2)-1),
+                                   sigma  = c(1, rep(0.1,5)))
+```
+
+We will use two sample of size 100 and 1000 showing respectively a non-asymptotic and asymptotic behaviour. Here's a clearly non asymptotic sample:
+
+```{r}
+small_sample <- sample_sim(100)
+hist(small_sample,
+     main = "Sample data with non-asymptotic behaviour",
+     xlab = "n = 100",
+     breaks = 50)
+```
+
+And here's a sample that clearly looks more much more like the Bart:
+
+```{r}
+large_sample <- sample_sim(1000)
+hist(large_sample,
+     main = "Sample data with asymptotic behaviour",
+     xlab = "n = 1000",
+     breaks = 100)
+```
+
 
 We start by defining an EM-fit procedure for a mixture of a generic number of components.
 
@@ -80,28 +111,11 @@ handmade.em <- function(y, p, mu, sigma, n_iter, plot_flag = T)
 
 ```
 
-Then we define the Bart Simpson density and choose a number of samples that allows to how a non-asymptotic and an asymptotic behaviour respectively.
+
+
 
 ```{r}
-# Bart Simpson density
-bart_simpson <- function(x) 0.5*dnorm(x, 0, 1) +
-                            0.1*dnorm(x, -1.0, 0.1) + 0.1*dnorm(x, -0.5, 0.1) +
-                            0.1*dnorm(x, 0.0, 0.1) + 0.1*dnorm(x, 0.5, 0.1) +
-                            0.1*dnorm(x, 1.0, .1)
 
-sample_sim <- function(n) rnormmix(n,
-                                   lambda = c(0.5, rep(0.1,5)),
-                                   mu     = c(0, ((0:4)/2)-1),
-                                   sigma  = c(1, rep(0.1,5)))
-
-#curve(bart_simpson, col=rgb(1,0,0,0,4), lwd=3, n=500)
-
-n_1 = 500 # non-asymptotic
-n_2 = 100000 # asymptotic
-n_breaks = 100
-
-# hist(sample_sim(n_1), prob=T, breaks=n_breaks) # uncomment to plot
-# hist(sample_sim(n_2), prob=T, breaks=n_breaks)
 
 
 ```

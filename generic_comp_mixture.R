@@ -119,6 +119,9 @@ log_likelihood <- function(x, hm.fit) {
 }
 
 init_kmeans <- function(y, k) {
+  # takes the data and the number of components and returns
+  # initial parameters (proportions, mean, std) running the
+  # kmeans algotithm
   labels <- kmeans(y, k)$cluster
   mu <- unlist(lapply(1:k, function(i) mean(y[labels == i])))
   sigma <- unlist(lapply(1:k, function(i) sd(y[labels == i])))
@@ -181,7 +184,7 @@ kfold_cv <- function(XX, k) {
   for (i in 1:k) {
     x_split <- kfold_to_split(XX, kfold, i) # named list of train/test
     params <- init_kmeans(x_split$train, k)
-    hm.fit <- handmade.em(x_split$train, params$p, params$mu, params$sigma, n_iter)
+    hm.fit <- handmade.em(x_split$train, params$p, params$mu, params$sigma)
     log_like <- log_likelihood(x_split$test, hm.fit) / length(x_split$test)
     outs[i] <- log_like
   }
@@ -196,12 +199,11 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
   # M : number of simulations
   # k_max : maximum number of components
   # n_iter : number of iterations of EM
-  start_time = Sys.time()
-
+  
   result <- matrix(nrow = 8, ncol = M)
 
   for (n_sim in 1:M) {
-
+    
     # sample from Bart
     XX <- sample_sim(n)
     
@@ -209,16 +211,16 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
     model_eval <- matrix(nrow = 8, ncol = k_max)
     
     for (k in 1:k_max) {
-      cat("[sim=", n_sim, ", k=", k, "]\n", sep='')
+      if(verbose) cat("[sim=", n_sim, ", k=", k, "]\n", sep='')
       
       # first run EM algorithm on the whole dataset to compute AIC and BIC
-      params <- init_kmeans(XX, k) # initial random parameters
+      params <- init_kmeans(XX, k) # initial random parameters MOVE THIS OUTSIDE THE FOR
       hm.fit <- handmade.em(XX, params$p, params$mu, params$sigma)
       
       # AIC and BIC evaluation
       log_like <- log_likelihood(XX, hm.fit)
-      model_eval[1,k] <- 2 * (k * 3 - log_like)
-      model_eval[2,k] <- log(n) * k * 3 - 2 * log_like
+      model_eval[1,k] <- 2 * log_like - 2 * k * 3
+      model_eval[2,k] <- log_like - log(n)/n * k * 3
       
       # cross validation on different split ratios
       ratios = c(.5, .7, .3)
@@ -254,14 +256,9 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
     }
 
     # take best k for each mode evaluation and save it in the result matrix
-    model_eval[is.nan(model_eval)] = Inf # eliminating possible NaN values
-    result[,n_sim] <- unlist(apply(model_eval, 1, which.min))
+    model_eval[is.nan(model_eval)] = -Inf # eliminating possible NaN values
+    result[,n_sim] <- unlist(apply(model_eval, 1, which.max))  # select the best k for each simulation
   }
-  end_time <- Sys.time()
-  total_time <- end_time - start_time
-  avg_time <- total_time / M
-  
-  if(verbose) cat("Total time =", total_time, "\nAverage time =", avg_time, "\n")
   
   return(result)
 }
