@@ -3,6 +3,8 @@
 library(mixtools)
 library(caret)
 library(KScorrect)
+library(gt)
+library(plyr)
 
 vnorm <- function(y, p, mu, sigma) p * dnorm(y, mu, sigma)
 vect_wnorm <- Vectorize(vnorm, c("p", "mu", "sigma"))
@@ -268,8 +270,9 @@ accuracy <- function(k_matrix, k) {
   return(result)
 }
 
+model.names <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
+
 make.accuracy.table <- function(k_matrix, k_max) {
-  model.names <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
   accuracy.table <- ldply(1:k_max, function(i) accuracy(k_matrix, i))
   colnames(accuracy.table) <- model.names
   k <- 1:8
@@ -283,11 +286,36 @@ k_max <- 8
 large.result <- EM_simulation(n_1, M, k_max)
 small.result <- EM_simulation(n_2, M, k_max)
 
-make.accuracy.table(large.result$best_k, k_max) %>% gt() %>%
-  tab_header(
-    title = "Model Accuracy (n = 100)"
-  ) %>%
-  fmt_percent(
-    columns = 2:9,
-    decimals = 0
-  )
+small.accuracy.table <- make.accuracy.table(small.result$best_k, k_max)
+large.accuracy.table <- make.accuracy.table(large.result$best_k, k_max)
+
+show.table <- function(table, title) {
+  max.rows <- apply(table, 2, which.max)[2:9]
+  cells <- lapply(model.names, function(x) cells_body(columns = x, rows = max.rows[[x]]))
+  
+  table %>% gt() %>%
+    tab_header(
+      title = title
+    ) %>%
+    fmt_percent(
+      columns = 2:k_max+1,
+      decimals = 0
+    ) %>%
+    tab_style(
+      style = list(
+        cell_text(weight = "bold")
+      ),
+      locations = c(
+        list(
+          cells_column_labels(c("k", model.names)),
+          cells_title("title"),
+          cells_body(columns = "k")
+        ),
+        cells
+      )
+    )
+}
+
+show_table(small.result, "Model Accuracy (n=100)")
+show_table(large.result, "Model Accuracy (n=1000)")
+
