@@ -105,10 +105,6 @@ sample_sim <- function(n) rnormmix(n,
                                    mu     = c(0, ((0:4)/2)-1),
                                    sigma  = c(1, rep(0.1,5)))
 
-n_1 = 10 # non-asymptotic
-n_2 = 1000 # asymptotic
-n_breaks = 100
-
 # hist(sample_sim(n_1), prob=T, breaks=n_breaks) # uncomment to plot
 #hist(sample_sim(n_2), prob=T, breaks=n_breaks)
 
@@ -245,9 +241,9 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
       x_split <- sample_split(XX, .5) # split data in half
       params <- init_kmeans(x_split$train, k)
       hm.fit <- handmade.em(x_split$train, params$p, params$mu, params$sigma) # get MLE from trainset
-      f_k <- function(p) qmixnorm(p, mean = params$mu,
-                                  sd = params$sigma,
-                                  pro = params$p,
+      f_k <- function(p) qmixnorm(p, mean = hm.fit$mu,
+                                  sd = hm.fit$sigma,
+                                  pro = hm.fit$p,
                                   expand = .2) # quantile function on the MLE
       test_ecdf <- ecdf(x_split$test) # ecdf of the test set
       f_test <- function(p) as.numeric(quantile(test_ecdf, probs = p)) # quantile function of testset ecdf
@@ -268,9 +264,30 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
 
 accuracy <- function(k_matrix, k) {
   result <- unlist(apply(k_matrix, 1, function(x) sum(x == k) / length(x)))
-  names(result) <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
+  #names(result) <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
   return(result)
 }
 
-large.result <- EM_simulation(1000, 50, 8)
-small.result <- EM_simulation(100, 50, 8)
+make.accuracy.table <- function(k_matrix, k_max) {
+  model.names <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
+  accuracy.table <- ldply(1:k_max, function(i) accuracy(k_matrix, i))
+  colnames(accuracy.table) <- model.names
+  k <- 1:8
+  return(cbind(k, accuracy.table))
+}
+
+n_1 <- 100
+n_2 <- 1000
+M <- 5
+k_max <- 8
+large.result <- EM_simulation(n_1, M, k_max)
+small.result <- EM_simulation(n_2, M, k_max)
+
+make.accuracy.table(large.result$best_k, k_max) %>% gt() %>%
+  tab_header(
+    title = "Model Accuracy (n = 100)"
+  ) %>%
+  fmt_percent(
+    columns = 2:9,
+    decimals = 0
+  )

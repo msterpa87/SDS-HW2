@@ -8,8 +8,7 @@ output: html_document
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
 	message = FALSE,
-	warning = FALSE,
-	cache = TRUE
+	warning = FALSE
 )
 ```
 
@@ -126,8 +125,8 @@ handmade.em <- function(y, p, mu, sigma, breaks = 50, n_iter = 1000,
 log_likelihood <- function(x, hm.fit) {
   # x : vector
   # hm.fit : output of handmade.em function
-  like <- apply(vect_wnorm(x, hm.fit$p, hm.fit$mu, hm.fit$sigma), 1, sum)
-  log_like <- sum(log(like)) # log likelihood
+  like <- apply(vect_log_wnorm(x, hm.fit$p, hm.fit$mu, hm.fit$sigma), 1, sum)
+  log_like <- sum(like)
   return(log_like)
 }
 
@@ -267,16 +266,16 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
       x_split <- sample_split(XX, .5) # split data in half
       params <- init_kmeans(x_split$train, k)
       hm.fit <- handmade.em(x_split$train, params$p, params$mu, params$sigma) # get MLE from trainset
-      f_k <- function(p) qmixnorm(p, mean = params$mu,
-                                  sd = params$sigma,
-                                  pro = params$p,
+      f_k <- function(p) qmixnorm(p, mean = hm.fit$mu,
+                                  sd = hm.fit$sigma,
+                                  pro = hm.fit$p,
                                   expand = .2) # quantile function on the MLE
       test_ecdf <- ecdf(x_split$test) # ecdf of the test set
       f_test <- function(p) as.numeric(quantile(test_ecdf, probs = p)) # quantile function of testset ecdf
       f_abs <- function(p) abs(f_k(p) - f_test(p)) # integrand
-      model_eval[8,k] <- tryCatch(integrate(f_abs, lower = 0, upper = 1,
+      model_eval[8,k] <- integrate(f_abs, lower = 0, upper = 1,
                                    subdivisions = subdivisions,
-                                   stop.on.error = FALSE)$value)
+                                   stop.on.error = FALSE)$value
     }
 
     # take best k for each mode evaluation and save it in the result matrix
@@ -294,12 +293,12 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
 
 As outlined above we'll run the test on two different sample sizes, collect the results and comment on them.
 
-```{r large sample simulation, message=FALSE, warning=FALSE, include=FALSE}
-result.large <- EM_simulation(1000, 50, 8)
+```{r simulations, message=FALSE, warning=FALSE, include=FALSE}
+n_1 <- 100
+n_2 <- 1000
+M <- 5
+k_max <- 8
+large.result <- EM_simulation(n_1, M, k_max)
+small.result <- EM_simulation(n_2, M, k_max)
 ```
-
-```{r small sample simulation, message=FALSE, warning=FALSE, include=FALSE}
-result.small <- EM_simulation(100, 50, 8)
-```
-
 
