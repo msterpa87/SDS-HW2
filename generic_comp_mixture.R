@@ -8,8 +8,6 @@ library(plyr)
 
 vnorm <- function(y, p, mu, sigma) p * dnorm(y, mu, sigma)
 vect_wnorm <- Vectorize(vnorm, c("p", "mu", "sigma"))
-log_vnorm <- function(y, p, mu, sigma) p * dnorm(y, mu, sigma, log = TRUE)
-vect_log_wnorm <- Vectorize(vnorm, c("p", "mu", "sigma"))
 vect_norm = Vectorize(dnorm, c("mean", "sd"))
 
 plot_fit <- function(y, p, mu, sigma, xlab = "", breaks = 50) {
@@ -37,8 +35,8 @@ handmade.em <- function(y, p, mu, sigma, breaks = 50, n_iter = 1000,
                         threshold = 1e-3, plot = F, plot_freq = 25)
 {
   # vectorized likelihood
-  like     <- apply(vect_log_wnorm(y, p, mu, sigma), 1, sum)
-  deviance <- -2 * sum(like)
+  like     <- apply(vect_wnorm(y, p, mu, sigma), 1, sum)
+  deviance <- -2 * sum(log(like))
   k <- length(p)
   
   # creating matrix of iteration values
@@ -65,7 +63,7 @@ handmade.em <- function(y, p, mu, sigma, breaks = 50, n_iter = 1000,
     #sigma <- sqrt(sigma - mu^2)
     
     # -2 x log-likelihood (a.k.a. deviance)
-    new_like <- apply(vect_log_wnorm(y, p, mu, sigma), 1, sum)
+    new_like <- log(apply(vect_wnorm(y, p, mu, sigma), 1, sum))
     
     # stopping criteria
     diff <- abs(sum(like) - sum(new_like))
@@ -113,8 +111,8 @@ sample_sim <- function(n) rnormmix(n,
 log_likelihood <- function(x, hm.fit) {
   # x : vector
   # hm.fit : output of handmade.em function
-  like <- apply(vect_log_wnorm(x, hm.fit$p, hm.fit$mu, hm.fit$sigma), 1, sum)
-  log_like <- sum(like)
+  like <- apply(vect_wnorm(x, hm.fit$p, hm.fit$mu, hm.fit$sigma), 1, sum)
+  log_like <- sum(log(like))
   return(log_like)
 }
 

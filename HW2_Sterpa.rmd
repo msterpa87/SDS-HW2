@@ -60,8 +60,8 @@ handmade.em <- function(y, p, mu, sigma, breaks = 50, n_iter = 1000,
                         threshold = 1e-3, plot = F, plot_freq = 25)
 {
   # vectorized likelihood
-  like     <- apply(vect_log_wnorm(y, p, mu, sigma), 1, sum)
-  deviance <- -2 * sum(like)
+  like     <- apply(vect_wnorm(y, p, mu, sigma), 1, sum)
+  deviance <- -2 * sum(log(like))
   k <- length(p)
   
   # creating matrix of iteration values
@@ -74,20 +74,21 @@ handmade.em <- function(y, p, mu, sigma, breaks = 50, n_iter = 1000,
     d   <- vect_wnorm(y, p, mu, sigma) # matrix of responsabilities
     den <- apply(d, 1, sum) # normalizing factor
     r <- d / den # normalizing each column
-    r[is.na(r)] = 1
+    r[is.nan(r)] = 1
 
     # M step
     p <- apply(r, 2, mean)
     mu <- apply(r, 2, function(x) sum(x * y) / sum(x))
-    
+    #for (i in 1:k) {
+    #  mu[i] <- sum(r[,i] * y) / sum(r[,i])
+    #}
 
     for (i in 1:k) sigma[i] <- sqrt(sum(r[,i] * (y - mu[i])^2) / sum(r[,i]))
-    #cat(p, mu, sigma, "\n")
     #sigma <- apply(1:k, 2, function(i) sqrt(sum(r[,i] * (y - mu[i])^2) / sum(r[,i]) ) )
     #sigma <- sqrt(sigma - mu^2)
     
     # -2 x log-likelihood (a.k.a. deviance)
-    new_like <- apply(vect_log_wnorm(y, p, mu, sigma), 1, sum)
+    new_like <- log(apply(vect_wnorm(y, p, mu, sigma), 1, sum))
     
     # stopping criteria
     diff <- abs(sum(like) - sum(new_like))
@@ -120,8 +121,8 @@ handmade.em <- function(y, p, mu, sigma, breaks = 50, n_iter = 1000,
 log_likelihood <- function(x, hm.fit) {
   # x : vector
   # hm.fit : output of handmade.em function
-  like <- apply(vect_log_wnorm(x, hm.fit$p, hm.fit$mu, hm.fit$sigma), 1, sum)
-  log_like <- sum(like)
+  like <- apply(vect_wnorm(x, hm.fit$p, hm.fit$mu, hm.fit$sigma), 1, sum)
+  log_like <- sum(log(like))
   return(log_like)
 }
 
@@ -262,16 +263,16 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
       params <- init_kmeans(x_split$train, k)
       hm.fit <- handmade.em(x_split$train, params$p, params$mu, params$sigma) # get MLE from trainset
       f_k <- function(p) qmixnorm(p, mean = hm.fit$mu,
-                                sd = hm.fit$sigma,
-                                pro = hm.fit$p,
-                                expand = .2) # quantile function on the MLE
+                                  sd = hm.fit$sigma,
+                                  pro = hm.fit$p,
+                                  expand = .2) # quantile function on the MLE
       test_ecdf <- ecdf(x_split$test) # ecdf of the test set
       f_test <- function(p) as.numeric(quantile(test_ecdf, probs = p)) # quantile function of testset ecdf
       f_abs <- function(p) abs(f_k(p) - f_test(p)) # integrand
       model_eval[8,k] <- integrate(f_abs, lower = 0, upper = 1,
                                    subdivisions = subdivisions,
                                    stop.on.error = FALSE)$value
-  }
+    }
 
     # take best k for each mode evaluation and save it in the result matrix
     model_eval[is.nan(model_eval)] = -Inf # eliminating possible NaN values
@@ -281,8 +282,6 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
   
   return(list("best_k" = result, "performance" = model_performance))
 }
-
-
 
 ```
 
