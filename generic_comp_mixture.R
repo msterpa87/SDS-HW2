@@ -49,7 +49,7 @@ handmade.em <- function(y, p, mu, sigma, breaks = 50, n_iter = 1000,
     d   <- vect_wnorm(y, p, mu, sigma) # matrix of responsabilities
     den <- apply(d, 1, sum) # normalizing factor
     r <- d / den # normalizing each column
-    r[is.nan(r)] = 0
+    r[is.nan(r)] = 1
 
     # M step
     p <- apply(r, 2, mean)
