@@ -211,7 +211,7 @@ kfold_cv <- function(XX, n_fold, k) {
 Finally here's the simulation function that takes the sample size, the number of simulations to run and $k_{max}$ and runs M simulation for each $k \in \{1, \dots, k_{max}\}$ saving the performance of each model selection method on the result of the EM-fit.
 
 ```{r}
-EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
+EM_simulation <- function(n, M, k_max, subdivisions = 200) {
   # n : sample size
   # M : number of simulations
   # k_max : maximum number of components
@@ -229,8 +229,6 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
     model_eval <- matrix(nrow = 8, ncol = k_max)
 
     for (k in 1:k_max) {
-      if(verbose) cat("[sim=", n_sim, ", k=", k, "]\n", sep='')
-      
       # first run EM algorithm on the whole dataset to compute AIC and BIC
       params <- init_kmeans(XX, k) # initial random parameters
       hm.fit <- handmade.em(XX, params$p, params$mu, params$sigma)
@@ -238,7 +236,7 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
       # AIC and BIC evaluation
       log_like <- log_likelihood(XX, hm.fit)
       model_eval[1,k] <- 2 * log_like - 2 * k * 3
-      model_eval[2,k] <- log_like - log(n)/n * k * 3
+      model_eval[2,k] <- 2 * log_like - log(n) * k * 3
       
       # cross validation on different split ratios
       ratios = c(.5, .7, .3)
@@ -287,13 +285,13 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
 As outlined above we'll run the test on two different sample sizes, collect the results and comment on them.
 (In the following chunk large and small.result have been mistankely inverted, i.e. small.result is the one on the large sample)
 
-```{r simulations, warning=FALSE, cache=TRUE, include=FALSE}
+```{r simulations, echo=TRUE, warning=FALSE, cache=TRUE}
 n_1 <- 100
 n_2 <- 1000
-M <- 40
+M <- 50
 k_max <- 8
-large.result <- EM_simulation(n_1, M, k_max)
-small.result <- EM_simulation(n_2, M, k_max)
+small.result <- EM_simulation(n_1, M, k_max)
+large.result <- EM_simulation(n_2, M, k_max)
 ```
 
 
@@ -342,9 +340,8 @@ show.table <- function(table, title) {
 
 model.names <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
 
-# small and large names have been inverted (i.e. small result is actually on the large sample)
-small.accuracy.table <- make.accuracy.table(large.result$best_k, k_max)
-large.accuracy.table <- make.accuracy.table(small.result$best_k, k_max)
+small.accuracy.table <- make.accuracy.table(small.result$best_k, k_max)
+large.accuracy.table <- make.accuracy.table(large.result$best_k, k_max)
 
 show.table(small.accuracy.table, "Model Accuracy (n=100)")
 show.table(large.accuracy.table, "Model Accuracy (n=1000)")
@@ -391,7 +388,10 @@ params <- init_kmeans(XX, 7)
 hm.fit <- handmade.em(XX, params$p, params$mu, params$sigma)
 plot_fit(XX, hm.fit$p, hm.fit$mu, hm.fit$sigma, xlab = "EM-fit for k=7")
 
-
+#plot curve for k = 8
+params <- init_kmeans(XX, 8)
+hm.fit <- handmade.em(XX, params$p, params$mu, params$sigma)
+plot_fit(XX, hm.fit$p, hm.fit$mu, hm.fit$sigma, xlab = "EM-fit for k=8")
 ```
 
 3. Between the two sample split the 50-50 seems to perform slightly better while the 70-30 favours a more complex model and has a quite lower accuracy on $k^*$. The 30-70 seems to be suggest a choice of $k^*$ almost as frequently as the 50-50, maybe suggesting that using too much data on the training set leads to overfitting hence a more complex model.
