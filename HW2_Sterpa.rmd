@@ -74,7 +74,7 @@ handmade.em <- function(y, p, mu, sigma, breaks = 50, n_iter = 1000,
     d   <- vect_wnorm(y, p, mu, sigma) # matrix of responsabilities
     den <- apply(d, 1, sum) # normalizing factor
     r <- d / den # normalizing each column
-    r[is.nan(r)] = 1
+    r[is.na(r)] = 1
 
     # M step
     p <- apply(r, 2, mean)
@@ -287,34 +287,30 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
 
 As outlined above we'll run the test on two different sample sizes, collect the results and comment on them.
 
-```{r simulations, cache = TRUE, message=FALSE, warning=FALSE, include=FALSE}
+```{r simulations, warning=FALSE, cache=TRUE, include=FALSE}
 n_1 <- 100
 n_2 <- 1000
-M <- 5
+M <- 40
 k_max <- 8
 large.result <- EM_simulation(n_1, M, k_max)
 small.result <- EM_simulation(n_2, M, k_max)
 ```
+
 
 We can now look at the accuracy of each model in predicting the real value $k^*=6$.
 
 ```{r}
 accuracy <- function(k_matrix, k) {
   result <- unlist(apply(k_matrix, 1, function(x) sum(x == k) / length(x)))
-  #names(result) <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
   return(result)
 }
 
 make.accuracy.table <- function(k_matrix, k_max) {
-  model.names <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
   accuracy.table <- ldply(1:k_max, function(i) accuracy(k_matrix, i))
   colnames(accuracy.table) <- model.names
   k <- 1:k_max
   return(cbind(k, accuracy.table))
 }
-
-small.accuracy.table <- make.accuracy.table(small.result$best_k, k_max)
-large.accuracy.table <- make.accuracy.table(large.result$best_k, k_max)
 
 # table generation
 show.table <- function(table, title) {
@@ -344,7 +340,12 @@ show.table <- function(table, title) {
     )
 }
 
-show_table(small.result, "Model Accuracy (n=100)")
-show_table(large.result, "Model Accuracy (n=1000)")
+model.names <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
+
+small.accuracy.table <- make.accuracy.table(small.result$best_k, k_max)
+large.accuracy.table <- make.accuracy.table(large.result$best_k, k_max)
+
+show.table(small.accuracy.table, "Model Accuracy (n=100)")
+show.table(large.accuracy.table, "Model Accuracy (n=1000)")
 ```
 

@@ -279,7 +279,7 @@ make.accuracy.table <- function(k_matrix, k_max) {
 
 n_1 <- 100
 n_2 <- 1000
-M <- 5
+M <- 50
 k_max <- 8
 large.result <- EM_simulation(n_1, M, k_max)
 small.result <- EM_simulation(n_2, M, k_max)
@@ -314,6 +314,6 @@ show.table <- function(table, title) {
     )
 }
 
-show_table(small.result, "Model Accuracy (n=100)")
-show_table(large.result, "Model Accuracy (n=1000)")
+show.table(small.accuracy.table, "Model Accuracy (n=100)")
+show.table(large.accuracy.table, "Model Accuracy (n=1000)")
 
