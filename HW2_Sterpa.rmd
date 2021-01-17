@@ -322,7 +322,7 @@ show.table <- function(table, title) {
       title = title
     ) %>%
     fmt_percent(
-      columns = 2:k_max+1,
+      columns = 1:k_max+1,
       decimals = 0
     ) %>%
     tab_style(
@@ -342,8 +342,9 @@ show.table <- function(table, title) {
 
 model.names <- c("AIC", "BIC", "50/50-SS", "70/30-SS", "30/70-SS", "5-Fold-CV", "10-Fold-CV", "Wasserstein")
 
-small.accuracy.table <- make.accuracy.table(small.result$best_k, k_max)
-large.accuracy.table <- make.accuracy.table(large.result$best_k, k_max)
+# small and large names have been inverted (i.e. small result is actually on the large sample)
+small.accuracy.table <- make.accuracy.table(large.result$best_k, k_max)
+large.accuracy.table <- make.accuracy.table(small.result$best_k, k_max)
 
 show.table(small.accuracy.table, "Model Accuracy (n=100)")
 show.table(large.accuracy.table, "Model Accuracy (n=1000)")
