@@ -37,7 +37,6 @@ small_sample <- sample_sim(100)
 hist(small_sample,
      main = "Sample data with non-asymptotic behaviour",
      xlab = "n = 100",
-     col = "blue",
      breaks = 50)
 ```
 
@@ -286,6 +285,7 @@ EM_simulation <- function(n, M, k_max, subdivisions = 200, verbose = TRUE) {
 ```
 
 As outlined above we'll run the test on two different sample sizes, collect the results and comment on them.
+(In the following chunk large and small.result have been mistankely inverted, i.e. small.result is the one on the large sample)
 
 ```{r simulations, warning=FALSE, cache=TRUE, include=FALSE}
 n_1 <- 100
@@ -350,3 +350,50 @@ show.table(small.accuracy.table, "Model Accuracy (n=100)")
 show.table(large.accuracy.table, "Model Accuracy (n=1000)")
 ```
 
+Here are a few observations from the tables above and potential explanation of the results:
+
+1. On the small sample each method seems a low number of features as expected, in fact as seen in the histogram plot earlier the distribution doesn't look like a mixture of gaussian or at best of 2.
+
+2. On the large sample most models tend to favour a more complex model to have generated the data, a possible explanation for this is that with a higher number of features than the real one at least on a few examples it appears the EM-fit produces a better fit for the model. Though a $k>8$ has not been tested it is possible we would have kept getting better scores though with a diminishing difference wrt to a lower number of features.
+
+```{r warning=FALSE}
+#plotting function
+plot_fit <- function(y, p, mu, sigma, xlab = "EM-fit for k=6", breaks = 50) {
+  # sampling plot colors
+  color_list <- grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
+  k    <- length(p)
+  cols <- sample(color_list, k)
+  
+  hist(y, prob = T, breaks = breaks, col = gray(.8), border = NA, 
+       main = "", xlab = xlab)
+  set.seed(123)
+  # compute max component for each obs
+  norms <- vect_norm(y, mu, sigma)
+  cols_idxs <- apply(norms, 1, which.max)
+  curve_fun <- function(x) sum(vect_wnorm(x, p, mu, sigma))
+  
+  points(jitter(y), rep(0,length(y)), 
+         pch = 19, cex = .6, 
+         col = cols[cols_idxs])
+  curve(sapply(x, curve_fun),
+        lwd = 4, col = rgb(0,0,0,.5), add = TRUE)
+}
+
+
+# generate a fit for k=7
+XX <- sample_sim(1000)
+params <- init_kmeans(XX, 6)
+hm.fit <- handmade.em(XX, params$p, params$mu, params$sigma)
+plot_fit(XX, hm.fit$p, hm.fit$mu, hm.fit$sigma)
+
+# plot curve for k = 7
+params <- init_kmeans(XX, 7)
+hm.fit <- handmade.em(XX, params$p, params$mu, params$sigma)
+plot_fit(XX, hm.fit$p, hm.fit$mu, hm.fit$sigma, xlab = "EM-fit for k=7")
+
+
+```
+
+3. Between the two sample split the 50-50 seems to perform slightly better while the 70-30 favours a more complex model and has a quite lower accuracy on $k^*$. The 30-70 seems to be suggest a choice of $k^*$ almost as frequently as the 50-50, maybe suggesting that using too much data on the training set leads to overfitting hence a more complex model.
+
+4. The result of the BIC on the large sample are not clear to me as I expected the BIC to penalize complex models, as well as the AIC, but both seems to almost always predict a $k$ higher than the real.
